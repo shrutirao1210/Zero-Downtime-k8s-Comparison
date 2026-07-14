@@ -1,0 +1,110 @@
+{
+  "blue-green": {
+    "n_runs": 10,
+    "downtime_mean_ms": 0.0,
+    "downtime_sd_ms": 0.0,
+    "downtime_median_ms": 0.0,
+    "downtime_iqr_ms": [
+      0.0,
+      0.0
+    ],
+    "downtime_95ci": [
+      0.0,
+      0.0
+    ],
+    "timeout_rate_mean_pct": 0.0,
+    "http_error_rate_mean_pct": 0.0,
+    "p99_latency_global_ms": 69.055,
+    "p99_latency_source": "Mathematically Merged HdrHistograms",
+    "switch_duration_mean_ms": 6028.9,
+    "rollback_duration_mean_ms": 22002.9,
+    "resource": {
+      "base_pods": 5,
+      "peak_pods": 10,
+      "idle_pods": 5,
+      "overhead_pct": 100.0,
+      "note": "Standby namespace maintained continuously"
+    }
+  },
+  "rolling": {
+    "n_runs": 10,
+    "downtime_mean_ms": 14.0,
+    "downtime_sd_ms": 13.499,
+    "downtime_median_ms": 10.0,
+    "downtime_iqr_ms": [
+      2.5,
+      20.0
+    ],
+    "downtime_95ci": [
+      0.0,
+      25.0
+    ],
+    "timeout_rate_mean_pct": 0.0,
+    "http_error_rate_mean_pct": 0.5648,
+    "p99_latency_global_ms": 41.887,
+    "p99_latency_source": "Mathematically Merged HdrHistograms",
+    "switch_duration_mean_ms": 455.1,
+    "rollback_duration_mean_ms": 23109.6,
+    "resource": {
+      "base_pods": 10,
+      "peak_pods": 15,
+      "idle_pods": 5,
+      "overhead_pct": 50.0,
+      "note": "Temporary surge during rollout"
+    }
+  },
+  "canary": {
+    "n_runs": 10,
+    "downtime_mean_ms": 0.0,
+    "downtime_sd_ms": 0.0,
+    "downtime_median_ms": 0.0,
+    "downtime_iqr_ms": [
+      0.0,
+      0.0
+    ],
+    "downtime_95ci": [
+      0.0,
+      0.0
+    ],
+    "timeout_rate_mean_pct": 0.0,
+    "http_error_rate_mean_pct": 0.0,
+    "p99_latency_global_ms": 28.303,
+    "p99_latency_source": "Mathematically Merged HdrHistograms",
+    "switch_duration_mean_ms": 30112.0,
+    "rollback_duration_mean_ms": 21936.5,
+    "resource": {
+      "base_pods": 5,
+      "peak_pods": 10,
+      "idle_pods": 5,
+      "overhead_pct": 100.0,
+      "note": "Additional canary replicas during staged rollout"
+    }
+  },
+  "recreate": {
+    "n_runs": 10,
+    "downtime_mean_ms": 3690.0,
+    "downtime_sd_ms": 2085.777,
+    "downtime_median_ms": 2720.0,
+    "downtime_iqr_ms": [
+      2400.0,
+      3765.0
+    ],
+    "downtime_95ci": [
+      2400.0,
+      4725.0
+    ],
+    "timeout_rate_mean_pct": 0.0,
+    "http_error_rate_mean_pct": 3.6213,
+    "p99_latency_global_ms": 15065.087,
+    "p99_latency_source": "Mathematically Merged HdrHistograms",
+    "switch_duration_mean_ms": 628.5,
+    "rollback_duration_mean_ms": 13521.5,
+    "resource": {
+      "base_pods": 10,
+      "peak_pods": 10,
+      "idle_pods": 0,
+      "overhead_pct": 0.0,
+      "note": "No additional replicas; temporary service interruption"
+    }
+  }
+}

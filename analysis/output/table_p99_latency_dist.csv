@@ -1,0 +1,5 @@
+Strategy,Median p99 (ms),IQR
+Blue-Green,10.751,"[6.9, 58.6]"
+Rolling Update,38.303,"[23.5, 61.6]"
+Canary,10.111,"[7.6, 46.9]"
+Recreate (control),2127.871,"[2026.0, 3036.7]"

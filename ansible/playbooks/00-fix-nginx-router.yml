@@ -1,0 +1,28 @@
+---
+# Run this ONCE to upgrade the nginx router from the old read-only ConfigMap
+# mount to the new writable emptyDir design.
+# Your blue/green microservices are unaffected — only the router is restarted.
+
+- name: Upgrade nginx router to writable emptyDir config mount
+  hosts: local
+  gather_facts: false
+
+  vars:
+    target_env: "{{ active_env }}"   # keep routing to whichever env is currently active
+
+  tasks:
+    - name: Re-apply nginx router with emptyDir volume design
+      include_role:
+        name: nginx_router
+
+    - name: Verify router is healthy after restart
+      command: >
+        kubectl rollout status deployment/{{ nginx_deployment }}
+        -n {{ nginx_namespace }} --timeout=120s
+      changed_when: false
+
+    - name: Done
+      debug:
+        msg: >
+          nginx router upgraded to writable emptyDir mount.
+          Now run: cd ../wrk2 && ./run-downtime-test.sh 120 100 40

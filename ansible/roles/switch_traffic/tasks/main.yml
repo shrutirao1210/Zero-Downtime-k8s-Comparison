@@ -1,0 +1,89 @@
+---
+# Zero-downtime traffic switch: Blue → Green (or Green → Blue)
+#
+# Port-forward pre-flight REMOVED — it opened a live connection to the
+# api-gateway pod during the wrk measurement window, adding artificial
+# load exactly when we are measuring. Instead we rely on:
+#   1. kubectl rollout status  — verifies pod readiness (no live traffic impact)
+#   2. nginx -t before reload  — validates config before applying it
+#
+# The idle namespace is already restored and warmed up by run-strategy-test.sh
+# before this playbook is called.
+
+- name: Render new default.conf pointing at {{ target_env }}
+  template:
+    src: default.conf.j2
+    dest: "/tmp/nginx-router-{{ target_env }}.conf"
+
+- name: Confirm all {{ target_env }} deployments are Ready
+  command: >
+    kubectl rollout status deployment/{{ item.name }}
+    -n {{ target_env }}
+    --timeout=120s
+  loop: "{{ microservices }}"
+  changed_when: false
+
+- name: Get running nginx router pods
+  command: >
+    kubectl get pods -n {{ nginx_namespace }}
+    -l app={{ nginx_deployment }}
+    --field-selector=status.phase=Running
+    -o jsonpath="{.items[*].metadata.name}"
+  register: router_pods
+  changed_when: false
+
+- name: Fail if no router pods found
+  fail:
+    msg: "No nginx router pods in {{ nginx_namespace }}. Run 00-fix-nginx-router.yml."
+  when: router_pods.stdout | trim == ""
+
+- name: Write new config into each router pod via stdin pipe
+  shell: >
+    kubectl exec -i -n {{ nginx_namespace }} {{ item }}
+    -- sh -c 'cat > /etc/nginx/conf.d/default.conf'
+    < /tmp/nginx-router-{{ target_env }}.conf
+  loop: "{{ router_pods.stdout.split() }}"
+  changed_when: true
+
+- name: Validate nginx config in each pod
+  command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -t
+  loop: "{{ router_pods.stdout.split() }}"
+  changed_when: false
+  failed_when: false
+  register: nginx_test
+
+- name: Abort if any config is invalid
+  fail:
+    msg: "nginx -t failed in pod {{ item.item }}: {{ item.stderr }}"
+  loop: "{{ nginx_test.results }}"
+  when: item.rc != 0
+
+- name: Record switch timestamp
+  shell: date -u +%Y-%m-%dT%H:%M:%S.%3NZ
+  register: switch_ts
+  changed_when: false
+
+- name: Atomically reload nginx in each router pod
+  command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -s reload
+  loop: "{{ router_pods.stdout.split() }}"
+  changed_when: true
+
+- name: Sync ConfigMap with live config (for pod-restart durability)
+  shell: |
+    kubectl create configmap {{ nginx_configmap }} \
+      --from-file=default.conf=/tmp/nginx-router-{{ target_env }}.conf \
+      -n {{ nginx_namespace }} \
+      --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Update active-environment ConfigMap
+  shell: |
+    kubectl create configmap active-environment \
+      --from-literal=active={{ target_env }} \
+      --from-literal=switched_at="{{ switch_ts.stdout }}" \
+      --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Switch complete
+  debug:
+    msg: "✅ Traffic switched to {{ target_env }} at {{ switch_ts.stdout }}"

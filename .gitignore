@@ -1,0 +1,23 @@
+# Python Virtual Environment
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Experiment Raw Data (The raw CSV timestamps are too large for GitHub, but the analysis outputs are fine)
+#experiment/raw/
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,153 @@
+---
+# Canary deployment strategy.
+# Reuses the nginx weighted-upstream mechanism to progressively shift traffic.
+# Stages: 90/10 → 50/50 → 0/100
+# Each stage waits for `canary_soak_seconds` before advancing.
+#
+# Vars expected:
+#   stable_env           — namespace with current stable version (e.g. "blue")
+#   canary_env           — namespace with new canary version (e.g. "green")
+#   canary_soak_seconds  — seconds to hold each weight stage (default: 10)
+
+- name: Set defaults
+  set_fact:
+    _stable_env:  "{{ stable_env  | default('blue') }}"
+    _canary_env:  "{{ canary_env  | default('green') }}"
+    _soak:        "{{ canary_soak_seconds | default(10) | int }}"
+
+# ── Pre-flight: canary env must be Ready before receiving any traffic ──────────
+- name: Wait for all canary deployments to be Ready
+  command: >
+    kubectl rollout status deployment/{{ item.name }}
+    -n {{ _canary_env }}
+    --timeout=120s
+  loop: "{{ microservices }}"
+  changed_when: false
+
+# ── Get router pods ────────────────────────────────────────────────────────────
+- name: Get router pod names
+  command: >
+    kubectl get pods -n {{ nginx_namespace }}
+    -l app={{ nginx_deployment }}
+    --field-selector=status.phase=Running
+    -o jsonpath="{.items[*].metadata.name}"
+  register: router_pods
+  changed_when: false
+
+- name: Fail if no router pods
+  fail:
+    msg: "No nginx router pods found. Run 00-fix-nginx-router.yml first."
+  when: router_pods.stdout | trim == ""
+
+# ── Helper macro: write config + reload ───────────────────────────────────────
+# We use a loop over the three weight stages.
+# Ansible doesn't have macros, so we use include_tasks with set_fact.
+
+- name: "Stage 1 — 90% stable / 10% canary"
+  block:
+    - name: Render canary config (90/10)
+      template:
+        src: canary.conf.j2
+        dest: /tmp/canary-90-10.conf
+      vars:
+        stable_weight: 9
+        canary_weight: 1
+
+    - name: Push 90/10 config to all router pods
+      shell: >
+        kubectl exec -i -n {{ nginx_namespace }} {{ item }}
+        -- sh -c 'cat > /etc/nginx/conf.d/default.conf'
+        < /tmp/canary-90-10.conf
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+    - name: Validate nginx config (90/10)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -t
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: false
+
+    - name: Reload nginx (90/10)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -s reload
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+    - name: "Soak at 90/10 for {{ _soak }}s"
+      pause:
+        seconds: "{{ _soak }}"
+
+- name: "Stage 2 — 50% stable / 50% canary"
+  block:
+    - name: Render canary config (50/50)
+      template:
+        src: canary.conf.j2
+        dest: /tmp/canary-50-50.conf
+      vars:
+        stable_weight: 1
+        canary_weight: 1
+
+    - name: Push 50/50 config to all router pods
+      shell: >
+        kubectl exec -i -n {{ nginx_namespace }} {{ item }}
+        -- sh -c 'cat > /etc/nginx/conf.d/default.conf'
+        < /tmp/canary-50-50.conf
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+    - name: Validate nginx config (50/50)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -t
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: false
+
+    - name: Reload nginx (50/50)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -s reload
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+    - name: "Soak at 50/50 for {{ _soak }}s"
+      pause:
+        seconds: "{{ _soak }}"
+
+- name: "Stage 3 — 0% stable / 100% canary (cutover)"
+  block:
+    - name: Record canary cutover start
+      shell: date -u +%Y-%m-%dT%H:%M:%S.%3NZ
+      register: canary_cutover_ts
+      changed_when: false
+
+    - name: Render canary config (0/100)
+      template:
+        src: canary.conf.j2
+        dest: /tmp/canary-0-100.conf
+      vars:
+        stable_weight: 0
+        canary_weight: 1
+
+    - name: Push 0/100 config to all router pods
+      shell: >
+        kubectl exec -i -n {{ nginx_namespace }} {{ item }}
+        -- sh -c 'cat > /etc/nginx/conf.d/default.conf'
+        < /tmp/canary-0-100.conf
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+    - name: Validate nginx config (0/100)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -t
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: false
+
+    - name: Reload nginx (0/100 — full canary)
+      command: kubectl exec -n {{ nginx_namespace }} {{ item }} -- nginx -s reload
+      loop: "{{ router_pods.stdout.split() }}"
+      changed_when: true
+
+- name: Update active-environment ConfigMap
+  shell: |
+    kubectl create configmap active-environment \
+      --from-literal=active={{ _canary_env }} \
+      --from-literal=strategy=canary \
+      --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Canary deployment complete
+  debug:
+    msg: "✅ Canary complete — 100% traffic now on {{ _canary_env }}"

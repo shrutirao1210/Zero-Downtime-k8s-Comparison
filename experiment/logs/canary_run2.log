@@ -1,0 +1,258 @@
+>> [reset] Preparing for: canary
+deployment.apps/api-gateway image updated
+deployment.apps/catalog-service image updated
+deployment.apps/price-service image updated
+deployment.apps/inventory-service image updated
+deployment.apps/shipping-service image updated
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+Waiting for deployment "api-gateway" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "api-gateway" rollout to finish: 1 old replicas are pending termination...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at blue] ***************
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all blue deployments are Ready] *****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 15:37:46.683940', 'end': '2026-07-11 15:37:46.799203', 'delta': '0:00:00.115263', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to blue at 2026-07-11T10:07:47.143Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> [reset] Done. Sleeping 10s...
+>> Router OK
+============================================================
+  Strategy : canary  (run 2)
+  Duration : 120s  |  Switch at: 40s
+  Active NS: blue  |  Idle NS: none
+============================================================
+>> Ensuring 'blue' pods are Ready...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> Verifying nginx router...
+>> Router OK (HTTP 200)
+>> Starting wrk: 120s, 2 threads, 4 connections (conservative for VMware)
+>> wrk PID=257536
+>> Sleeping 40s until switch...
+
+>> ============================================================
+>> SWITCH TRIGGERED: canary at 2026-07-11T10:08:39.588Z
+>> ============================================================
+
+PLAY [Trigger canary traffic progression (90/10 → 50/50 → 0/100)] **************
+
+TASK [include_role : canary_deploy] ********************************************
+included: canary_deploy for localhost
+
+TASK [canary_deploy : Set defaults] ********************************************
+ok: [localhost]
+
+TASK [canary_deploy : Wait for all canary deployments to be Ready] *************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [canary_deploy : Get router pod names] ************************************
+ok: [localhost]
+
+TASK [canary_deploy : Fail if no router pods] **********************************
+skipping: [localhost]
+
+TASK [canary_deploy : Render canary config (90/10)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 90/10 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (90/10)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (90/10)] ************************************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Soak at 90/10 for 10s] ***********************************
+Pausing for 10 seconds
+ok: [localhost]
+
+TASK [canary_deploy : Render canary config (50/50)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 50/50 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (50/50)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (50/50)] ************************************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Soak at 50/50 for 10s] ***********************************
+Pausing for 10 seconds
+ok: [localhost]
+
+TASK [canary_deploy : Record canary cutover start] *****************************
+ok: [localhost]
+
+TASK [canary_deploy : Render canary config (0/100)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 0/100 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (0/100)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (0/100 — full canary)] **********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Update active-environment ConfigMap] *********************
+changed: [localhost]
+
+TASK [canary_deploy : Canary deployment complete] ******************************
+ok: [localhost] => {
+    "msg": "✅ Canary complete — 100% traffic now on green"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=21   changed=7    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+
+>> Switch done in 30823ms
+>> Waiting for wrk to finish...
+
+>> wrk output:
+Running 2m test @ http://192.168.49.2:30080/health
+  2 threads and 4 connections
+  Thread calibration: mean lat.: 7.212ms, rate sampling interval: 16ms
+  Thread calibration: mean lat.: 6.538ms, rate sampling interval: 13ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     4.20ms    6.75ms  54.11ms   97.16%
+    Req/Sec     0.82     10.02   166.00     99.26%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    2.97ms
+ 75.000%    4.00ms
+ 90.000%    5.19ms
+ 99.000%   53.09ms
+ 99.900%   54.14ms
+ 99.990%   54.14ms
+ 99.999%   54.14ms
+100.000%   54.14ms
+
+  Detailed Percentile spectrum:
+       Value   Percentile   TotalCount 1/(1-Percentile)
+
+       0.992     0.000000            1         1.00
+       1.818     0.100000           18         1.11
+       2.139     0.200000           36         1.25
+       2.413     0.300000           53         1.43
+       2.733     0.400000           71         1.67
+       2.969     0.500000           88         2.00
+       3.105     0.550000           97         2.22
+       3.331     0.600000          106         2.50
+       3.509     0.650000          115         2.86
+       3.759     0.700000          124         3.33
+       3.999     0.750000          132         4.00
+       4.143     0.775000          137         4.44
+       4.247     0.800000          141         5.00
+       4.451     0.825000          146         5.71
+       4.647     0.850000          150         6.67
+       4.867     0.875000          154         8.00
+       4.991     0.887500          157         8.89
+       5.239     0.900000          159        10.00
+       5.291     0.912500          161        11.43
+       5.315     0.925000          163        13.33
+       6.315     0.937500          165        16.00
+       6.939     0.943750          167        17.78
+       7.699     0.950000          168        20.00
+       7.827     0.956250          169        22.86
+       9.223     0.962500          170        26.67
+       9.623     0.968750          171        32.00
+      12.679     0.971875          172        35.56
+      12.679     0.975000          172        40.00
+      13.887     0.978125          173        45.71
+      13.887     0.981250          173        53.33
+      53.087     0.984375          174        64.00
+      53.087     0.985938          174        71.11
+      53.087     0.987500          174        80.00
+      53.983     0.989062          175        91.43
+      53.983     0.990625          175       106.67
+      53.983     0.992188          175       128.00
+      53.983     0.992969          175       142.22
+      53.983     0.993750          175       160.00
+      54.143     0.994531          176       182.86
+      54.143     1.000000          176          inf
+#[Mean    =        4.199, StdDeviation   =        6.751]
+#[Max     =       54.112, Total count    =          176]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  228 requests in 2.00m, 52.77KB read
+Requests/sec:      1.90
+Transfer/sec:     450.25B
+
+============================================================
+  Results: /home/shruti-rao/Downloads/zero-downtime-FINAL_120_timeout/bgfinal/experiment/raw/canary_run2_*.{csv,txt}  (1 CSV files)
+============================================================

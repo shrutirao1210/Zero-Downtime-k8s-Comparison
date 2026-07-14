@@ -1,0 +1,7 @@
+duration_us=120015552 requests=224 bytes=53088 errors_connect=0 errors_read=0 errors_write=0 errors_status=0 errors_timeout=0
+latency_min_us=1052 latency_max_us=70848 latency_mean_us=5364.02 latency_stdev_us=6560.46
+latency_p50_us=4219
+latency_p75_us=5243
+latency_p90_us=6903
+latency_p99_us=28303
+latency_p99.9_us=70911

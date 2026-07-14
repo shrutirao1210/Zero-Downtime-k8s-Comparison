@@ -1,0 +1,15 @@
+---
+# Called by run-strategy-test.sh at t=switch_at to trigger the canary progression.
+# soak_seconds is short (10s) so the full 3-stage progression fits inside the test.
+
+- name: Trigger canary traffic progression (90/10 → 50/50 → 0/100)
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - include_role:
+        name: canary_deploy
+      vars:
+        stable_env: blue
+        canary_env: green
+        canary_soak_seconds: 10

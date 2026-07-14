@@ -1,0 +1,11 @@
+---
+# Deploys the NEW version into Green only. Blue keeps serving 100% live traffic.
+- name: Deploy new version to Green (standby)
+  hosts: local
+  gather_facts: false
+  tasks:
+    - include_role:
+        name: deploy_services
+      vars:
+        target_env: green
+        image_tag: "{{ image_tag_green }}"

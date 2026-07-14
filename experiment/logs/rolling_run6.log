@@ -1,0 +1,286 @@
+>> [reset] Preparing for: rolling
+
+PLAY [Setup Rolling Update strategy namespace] *********************************
+
+TASK [Create rolling namespace] ************************************************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+changed: [localhost]
+
+TASK [Deploy v1 baseline into rolling namespace] *******************************
+included: rolling_update for localhost
+
+TASK [rolling_update : Set defaults] *******************************************
+ok: [localhost]
+
+TASK [rolling_update : Create rolling namespace (idempotent)] ******************
+changed: [localhost]
+
+TASK [rolling_update : Template rolling Deployment for each microservice] ******
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [rolling_update : Template Service for each microservice] *****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [rolling_update : Apply Deployments] **************************************
+changed: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+changed: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'price-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [rolling_update : Apply Services] *****************************************
+changed: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+changed: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'price-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [rolling_update : Record rollout start time] ******************************
+ok: [localhost]
+
+TASK [rolling_update : Wait for all rolling deployments to complete] ***********
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [rolling_update : Record rollout end time] ********************************
+ok: [localhost]
+
+TASK [rolling_update : Compute rollout duration in seconds] ********************
+ok: [localhost]
+
+TASK [rolling_update : Save rollout duration for analysis] *********************
+ok: [localhost]
+
+TASK [rolling_update : Rolling update complete] ********************************
+ok: [localhost] => {
+    "msg": "Rolling update to v1 complete in 12s"
+}
+
+TASK [Point nginx router at rolling namespace] *********************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at rolling] ************
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all rolling deployments are Ready] **************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 15:07:04.947246', 'end': '2026-07-11 15:07:05.299551', 'delta': '0:00:00.352305', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to rolling at 2026-07-11T09:37:05.603Z"
+}
+
+TASK [Done — rolling baseline ready] *******************************************
+ok: [localhost] => {
+    "msg": "Rolling namespace is live. Now run:\n  wrk2/run-strategy-test.sh rolling 120 50 40\nIn a second terminal at t=40s the test script will kubectl set image to v2.\n"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=26   changed=8    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at rolling] ************
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all rolling deployments are Ready] **************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 15:07:10.961589', 'end': '2026-07-11 15:07:11.147505', 'delta': '0:00:00.185916', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to rolling at 2026-07-11T09:37:11.438Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> [reset] Done. Sleeping 10s...
+>> Router OK
+============================================================
+  Strategy : rolling  (run 6)
+  Duration : 120s  |  Switch at: 40s
+  Active NS: rolling  |  Idle NS: none
+============================================================
+>> Ensuring 'rolling' pods are Ready...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> Verifying nginx router...
+>> Router OK (HTTP 200)
+>> Starting wrk: 120s, 2 threads, 4 connections (conservative for VMware)
+>> wrk PID=189816
+>> Sleeping 40s until switch...
+
+>> ============================================================
+>> SWITCH TRIGGERED: rolling at 2026-07-11T09:38:03.803Z
+>> ============================================================
+deployment.apps/api-gateway image updated
+deployment.apps/catalog-service image updated
+deployment.apps/price-service image updated
+deployment.apps/inventory-service image updated
+deployment.apps/shipping-service image updated
+>> Switch done in 476ms
+>> Waiting for wrk to finish...
+
+>> wrk output:
+Running 2m test @ http://192.168.49.2:30080/health
+  2 threads and 4 connections
+  Thread calibration: mean lat.: 3.641ms, rate sampling interval: 11ms
+  Thread calibration: mean lat.: 3.417ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     3.84ms    3.81ms  48.83ms   97.26%
+    Req/Sec     2.64     20.10   222.00     98.09%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    3.21ms
+ 75.000%    3.99ms
+ 90.000%    5.03ms
+ 99.000%   22.54ms
+ 99.900%   45.28ms
+ 99.990%   48.86ms
+ 99.999%   48.86ms
+100.000%   48.86ms
+
+  Detailed Percentile spectrum:
+       Value   Percentile   TotalCount 1/(1-Percentile)
+
+       0.609     0.000000            1         1.00
+       2.117     0.100000           55         1.11
+       2.429     0.200000          110         1.25
+       2.753     0.300000          165         1.43
+       3.013     0.400000          220         1.67
+       3.207     0.500000          275         2.00
+       3.347     0.550000          302         2.22
+       3.481     0.600000          329         2.50
+       3.645     0.650000          357         2.86
+       3.849     0.700000          384         3.33
+       3.995     0.750000          411         4.00
+       4.107     0.775000          425         4.44
+       4.263     0.800000          439         5.00
+       4.487     0.825000          453         5.71
+       4.639     0.850000          466         6.67
+       4.863     0.875000          480         8.00
+       4.963     0.887500          487         8.89
+       5.039     0.900000          494        10.00
+       5.343     0.912500          501        11.43
+       5.607     0.925000          507        13.33
+       5.875     0.937500          514        16.00
+       6.067     0.943750          518        17.78
+       6.355     0.950000          521        20.00
+       6.559     0.956250          525        22.86
+       6.679     0.962500          528        26.67
+       7.327     0.968750          531        32.00
+       7.647     0.971875          533        35.56
+       8.039     0.975000          535        40.00
+       8.239     0.978125          537        45.71
+       9.047     0.981250          538        53.33
+      12.807     0.984375          540        64.00
+      18.399     0.985938          541        71.11
+      20.943     0.987500          542        80.00
+      22.543     0.989062          543        91.43
+      22.543     0.990625          543       106.67
+      23.199     0.992188          544       128.00
+      28.639     0.992969          545       142.22
+      28.639     0.993750          545       160.00
+      40.703     0.994531          546       182.86
+      40.703     0.995313          546       213.33
+      40.703     0.996094          546       256.00
+      45.279     0.996484          547       284.44
+      45.279     0.996875          547       320.00
+      45.279     0.997266          547       365.71
+      45.279     0.997656          547       426.67
+      45.279     0.998047          547       512.00
+      48.863     0.998242          548       568.89
+      48.863     1.000000          548          inf
+#[Mean    =        3.845, StdDeviation   =        3.811]
+#[Max     =       48.832, Total count    =          548]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  602 requests in 2.00m, 143.00KB read
+  Non-2xx or 3xx responses: 2
+Requests/sec:      5.02
+Transfer/sec:      1.19KB
+
+============================================================
+  Results: /home/shruti-rao/Downloads/zero-downtime-FINAL_120_timeout/bgfinal/experiment/raw/rolling_run6_*.{csv,txt}  (1 CSV files)
+============================================================

@@ -1,0 +1,167 @@
+---
+# Rolling Update deployment strategy — K8s native.
+# Uses a SINGLE namespace ("rolling") with RollingUpdate strategy.
+# maxSurge=1, maxUnavailable=0 guarantees no capacity loss during rollout.
+# The nginx router points at this namespace throughout — no switch needed.
+#
+# Vars expected:
+#   rolling_image_tag  — the NEW image tag to roll out (e.g. "v2")
+#   rolling_namespace  — namespace for this strategy (default: "rolling")
+
+- name: Set defaults
+  set_fact:
+    rolling_ns:  "{{ rolling_namespace | default('rolling') }}"
+    rolling_tag: "{{ rolling_image_tag | default(image_tag_green) }}"
+
+- name: Create rolling namespace (idempotent)
+  shell: |
+    kubectl create namespace {{ rolling_ns }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Template rolling Deployment for each microservice
+  copy:
+    dest: "/tmp/{{ svc.name }}-rolling-deploy.yml"
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: {{ svc.name }}
+        namespace: {{ rolling_ns }}
+        labels:
+          app: {{ svc.name }}
+          strategy: rolling
+      spec:
+        replicas: {{ replica_count }}
+        strategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 1          # at most 1 extra pod during rollout
+            maxUnavailable: 0    # never remove a pod until its replacement is Ready
+        selector:
+          matchLabels:
+            app: {{ svc.name }}
+        template:
+          metadata:
+            labels:
+              app: {{ svc.name }}
+              strategy: rolling
+          spec:
+            terminationGracePeriodSeconds: 5
+            containers:
+              - name: {{ svc.name }}
+                image: {{ dockerhub_user }}/{{ svc.name }}:{{ rolling_tag }}
+                ports:
+                  - containerPort: {{ svc.port }}
+                env:
+                  - name: APP_VERSION
+                    value: "{{ rolling_tag }}"
+                  - name: DEPLOY_ENV
+                    value: "{{ rolling_ns }}"
+      {% if svc.name == 'api-gateway' %}
+                  - name: CATALOG_URL
+                    value: "http://catalog-service.{{ rolling_ns }}.svc.cluster.local:8080"
+                  - name: PRICE_URL
+                    value: "http://price-service.{{ rolling_ns }}.svc.cluster.local:8080"
+                  - name: INVENTORY_URL
+                    value: "http://inventory-service.{{ rolling_ns }}.svc.cluster.local:8080"
+                  - name: SHIPPING_URL
+                    value: "http://shipping-service.{{ rolling_ns }}.svc.cluster.local:8080"
+      {% endif %}
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ svc.port }}
+                  initialDelaySeconds: 3
+                  periodSeconds: 5
+                  failureThreshold: 2
+                livenessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ svc.port }}
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  requests:
+                    cpu: "50m"
+                    memory: "64Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "128Mi"
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Template Service for each microservice
+  copy:
+    dest: "/tmp/{{ svc.name }}-rolling-svc.yml"
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: {{ svc.name }}
+        namespace: {{ rolling_ns }}
+      spec:
+        type: ClusterIP
+        selector:
+          app: {{ svc.name }}
+        ports:
+          - port: 8080
+            targetPort: {{ svc.port }}
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Apply Deployments
+  command: kubectl apply -f /tmp/{{ svc.name }}-rolling-deploy.yml
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: true
+
+- name: Apply Services
+  command: kubectl apply -f /tmp/{{ svc.name }}-rolling-svc.yml
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: true
+
+- name: Record rollout start time
+  shell: date -u +%Y-%m-%dT%H:%M:%S.%3NZ
+  register: rollout_start
+  changed_when: false
+
+- name: Wait for all rolling deployments to complete
+  command: >
+    kubectl rollout status deployment/{{ svc.name }}
+    -n {{ rolling_ns }}
+    --timeout=300s
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: false
+
+- name: Record rollout end time
+  shell: date -u +%Y-%m-%dT%H:%M:%S.%3NZ
+  register: rollout_end
+  changed_when: false
+
+- name: Compute rollout duration in seconds
+  shell: |
+    START=$(date -d "{{ rollout_start.stdout }}" +%s 2>/dev/null || \
+            python3 -c "from datetime import datetime; \
+            print(int(datetime.fromisoformat('{{ rollout_start.stdout }}'.replace('Z','+00:00')).timestamp()))")
+    END=$(date -d "{{ rollout_end.stdout }}" +%s 2>/dev/null || \
+          python3 -c "from datetime import datetime; \
+          print(int(datetime.fromisoformat('{{ rollout_end.stdout }}'.replace('Z','+00:00')).timestamp()))")
+    echo $((END - START))
+  register: rollout_duration
+  changed_when: false
+
+- name: Save rollout duration for analysis
+  copy:
+    dest: /tmp/rolling-rollout-duration.txt
+    content: "{{ rollout_duration.stdout }}"
+
+- name: Rolling update complete
+  debug:
+    msg: "Rolling update to {{ rolling_tag }} complete in {{ rollout_duration.stdout }}s"

@@ -1,0 +1,81 @@
+
+PLAY [Trigger canary traffic progression (90/10 → 50/50 → 0/100)] **************
+
+TASK [include_role : canary_deploy] ********************************************
+included: canary_deploy for localhost
+
+TASK [canary_deploy : Set defaults] ********************************************
+ok: [localhost]
+
+TASK [canary_deploy : Wait for all canary deployments to be Ready] *************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [canary_deploy : Get router pod names] ************************************
+ok: [localhost]
+
+TASK [canary_deploy : Fail if no router pods] **********************************
+skipping: [localhost]
+
+TASK [canary_deploy : Render canary config (90/10)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 90/10 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (90/10)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (90/10)] ************************************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Soak at 90/10 for 10s] ***********************************
+Pausing for 10 seconds
+ok: [localhost]
+
+TASK [canary_deploy : Render canary config (50/50)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 50/50 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (50/50)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (50/50)] ************************************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Soak at 50/50 for 10s] ***********************************
+Pausing for 10 seconds
+ok: [localhost]
+
+TASK [canary_deploy : Record canary cutover start] *****************************
+ok: [localhost]
+
+TASK [canary_deploy : Render canary config (0/100)] ****************************
+ok: [localhost]
+
+TASK [canary_deploy : Push 0/100 config to all router pods] ********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Validate nginx config (0/100)] ***************************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Reload nginx (0/100 — full canary)] **********************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [canary_deploy : Update active-environment ConfigMap] *********************
+changed: [localhost]
+
+TASK [canary_deploy : Canary deployment complete] ******************************
+ok: [localhost] => {
+    "msg": "✅ Canary complete — 100% traffic now on green"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=21   changed=7    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+

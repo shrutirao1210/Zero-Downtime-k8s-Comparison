@@ -1,0 +1,36 @@
+---
+# Sets up both stable (blue v1) and canary (green v2) namespaces.
+# Then runs the 3-stage canary progression (90/10 → 50/50 → 0/100)
+# while wrk2 is running.
+# The wrk2 test script triggers this playbook mid-test.
+
+- name: Setup Canary deployment strategy
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Ensure blue (stable) has v1 deployed
+      include_role:
+        name: deploy_services
+      vars:
+        target_env: blue
+        image_tag: "{{ image_tag_blue }}"
+
+    - name: Ensure green (canary) has v2 deployed
+      include_role:
+        name: deploy_services
+      vars:
+        target_env: green
+        image_tag: "{{ image_tag_green }}"
+
+    - name: Point nginx router at blue (stable) initially
+      include_role:
+        name: switch_traffic
+      vars:
+        target_env: blue
+
+    - name: Done — canary baseline ready
+      debug:
+        msg: >
+          Canary baseline ready. Run:
+            wrk2/run-strategy-test.sh canary 120 50 40

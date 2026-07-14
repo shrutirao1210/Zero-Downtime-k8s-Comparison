@@ -1,0 +1,5 @@
+deployment.apps/api-gateway image updated
+deployment.apps/catalog-service image updated
+deployment.apps/price-service image updated
+deployment.apps/inventory-service image updated
+deployment.apps/shipping-service image updated

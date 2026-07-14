@@ -1,0 +1,5 @@
+Strategy,Global P99 (ms)
+Blue-Green,69.055
+Rolling Update,41.887
+Canary,28.303
+Recreate (control),15065.087

@@ -1,0 +1,5 @@
+Strategy,n,Mean,SD,Median,IQR,95% CI,p (Holm),Cliff δ,Note
+Blue-Green,10,0.0,0.0,0.0,"[0.0, 0.0]","[0.0, 0.0]",reference,reference,
+Rolling Update,10,14.0,13.499,10.0,"[2.5, 20.0]","[0.0, 25.0]",0.0022 *,-0.700 (large),
+Canary,10,0.0,0.0,0.0,"[0.0, 0.0]","[0.0, 0.0]",N/A (identical distributions — no test applicable),0.000 (negligible),identical distributions — no test applicable
+Recreate (control),10,3690.0,2085.777,2720.0,"[2400.0, 3765.0]","[2400.0, 4725.0]",0.0001 *,-1.000 (large),

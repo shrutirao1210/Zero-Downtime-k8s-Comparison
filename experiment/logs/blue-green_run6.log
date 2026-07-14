@@ -1,0 +1,247 @@
+>> [reset] Preparing for: blue-green
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at blue] ***************
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all blue deployments are Ready] *****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 15:03:23.492703', 'end': '2026-07-11 15:03:23.680960', 'delta': '0:00:00.188257', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to blue at 2026-07-11T09:33:23.943Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> [reset] Done. Sleeping 10s...
+>> Router OK
+============================================================
+  Strategy : blue-green  (run 6)
+  Duration : 120s  |  Switch at: 40s
+  Active NS: blue  |  Idle NS: green
+============================================================
+>> Ensuring 'blue' pods are Ready...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> Scaling 'green' to 0 replicas...
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+>> Waiting for 'green' pods to terminate (max 90s)...
+>>   5 pod(s) still terminating...
+>> 'green' is empty after 6s
+>> Sleeping 8s for CPU to settle...
+>> Verifying nginx router...
+>> Router OK (HTTP 200)
+>> Pre-restoring 'green' to 1 replicas BEFORE starting wrk...
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+>> Waiting for 'green' to be Ready...
+Waiting for deployment "api-gateway" rollout to finish: 0 of 1 updated replicas are available...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> 'green' is Ready. Starting test in 5s...
+>> Starting wrk: 120s, 2 threads, 4 connections (conservative for VMware)
+>> wrk PID=182796
+>> Sleeping 40s until switch...
+
+>> ============================================================
+>> SWITCH TRIGGERED: blue-green at 2026-07-11T09:34:46.569Z
+>> ============================================================
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at green] **************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all green deployments are Ready] ****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 15:04:50.099212', 'end': '2026-07-11 15:04:50.364580', 'delta': '0:00:00.265368', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to green at 2026-07-11T09:34:50.634Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> Switch done in 5560ms
+>> Waiting for wrk to finish...
+
+>> wrk output:
+Running 2m test @ http://192.168.49.2:30080/health
+  2 threads and 4 connections
+  Thread calibration: mean lat.: 6.844ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 6.698ms, rate sampling interval: 11ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     4.67ms   13.26ms 177.15ms   99.42%
+    Req/Sec     0.81     11.07   222.00     99.40%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    3.38ms
+ 75.000%    4.31ms
+ 90.000%    5.38ms
+ 99.000%    7.43ms
+ 99.900%  177.28ms
+ 99.990%  177.28ms
+ 99.999%  177.28ms
+100.000%  177.28ms
+
+  Detailed Percentile spectrum:
+       Value   Percentile   TotalCount 1/(1-Percentile)
+
+       1.547     0.000000            1         1.00
+       2.363     0.100000           18         1.11
+       2.693     0.200000           35         1.25
+       2.923     0.300000           52         1.43
+       3.109     0.400000           69         1.67
+       3.377     0.500000           86         2.00
+       3.609     0.550000           95         2.22
+       3.699     0.600000          104         2.50
+       3.897     0.650000          112         2.86
+       4.099     0.700000          121         3.33
+       4.307     0.750000          129         4.00
+       4.443     0.775000          134         4.44
+       4.671     0.800000          138         5.00
+       4.823     0.825000          142         5.71
+       5.107     0.850000          147         6.67
+       5.291     0.875000          151         8.00
+       5.335     0.887500          153         8.89
+       5.383     0.900000          155        10.00
+       5.483     0.912500          157        11.43
+       5.843     0.925000          160        13.33
+       5.987     0.937500          162        16.00
+       6.043     0.943750          163        17.78
+       6.091     0.950000          164        20.00
+       6.191     0.956250          165        22.86
+       6.259     0.962500          166        26.67
+       6.347     0.968750          167        32.00
+       6.891     0.971875          168        35.56
+       6.891     0.975000          168        40.00
+       7.331     0.978125          169        45.71
+       7.331     0.981250          169        53.33
+       7.435     0.984375          170        64.00
+       7.435     0.985938          170        71.11
+       7.435     0.987500          170        80.00
+      10.015     0.989062          171        91.43
+      10.015     0.990625          171       106.67
+      10.015     0.992188          171       128.00
+      10.015     0.992969          171       142.22
+      10.015     0.993750          171       160.00
+     177.279     0.994531          172       182.86
+     177.279     1.000000          172          inf
+#[Mean    =        4.673, StdDeviation   =       13.257]
+#[Max     =      177.152, Total count    =          172]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  224 requests in 2.00m, 51.84KB read
+Requests/sec:      1.87
+Transfer/sec:     442.33B
+
+============================================================
+  Results: /home/shruti-rao/Downloads/zero-downtime-FINAL_120_timeout/bgfinal/experiment/raw/blue-green_run6_*.{csv,txt}  (1 CSV files)
+============================================================

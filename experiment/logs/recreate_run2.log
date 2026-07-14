@@ -1,0 +1,276 @@
+>> [reset] Preparing for: recreate
+
+PLAY [Setup Recreate strategy namespace (negative control)] ********************
+
+TASK [Deploy v1 baseline into recreate namespace] ******************************
+included: recreate_deploy for localhost
+
+TASK [recreate_deploy : Set defaults] ******************************************
+ok: [localhost]
+
+TASK [recreate_deploy : Create recreate namespace (idempotent)] ****************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+changed: [localhost]
+
+TASK [recreate_deploy : Template Recreate Deployment for each microservice] ****
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Template Service for each microservice] ****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Apply Services first (so ClusterIP exists before pods start)] ***
+changed: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+changed: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'price-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Deploy v1 baseline into recreate namespace first] ******
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Apply v1 baseline to recreate namespace] ***************
+changed: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+changed: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'price-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+changed: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Wait for v1 recreate baseline to be Ready] *************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [recreate_deploy : Recreate namespace baseline ready] *********************
+ok: [localhost] => {
+    "msg": "Recreate namespace baseline (v1) is ready. Run the wrk2 test to trigger the Recreate upgrade."
+}
+
+TASK [Create recreate namespace service (for nginx router)] ********************
+ok: [localhost]
+
+TASK [Point nginx router at recreate namespace] ********************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at recreate] ***********
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all recreate deployments are Ready] *************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 14:18:04.265866', 'end': '2026-07-11 14:18:04.432894', 'delta': '0:00:00.167028', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to recreate at 2026-07-11T08:48:04.670Z"
+}
+
+TASK [Done — recreate baseline ready] ******************************************
+ok: [localhost] => {
+    "msg": "Recreate (negative control) namespace is live. Run: wrk2/run-strategy-test.sh recreate 120 50 40 The harness will trigger kubectl set image to v2 at t=40s. Expect VISIBLE downtime (several seconds) — that's the point.\n"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=23   changed=7    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at recreate] ***********
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all recreate deployments are Ready] *************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 14:18:09.085035', 'end': '2026-07-11 14:18:09.205646', 'delta': '0:00:00.120611', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to recreate at 2026-07-11T08:48:09.454Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> [reset] Done. Sleeping 10s...
+>> Router OK
+============================================================
+  Strategy : recreate  (run 2)
+  Duration : 120s  |  Switch at: 40s
+  Active NS: recreate  |  Idle NS: none
+============================================================
+>> Ensuring 'recreate' pods are Ready...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> Verifying nginx router...
+>> Router OK (HTTP 200)
+>> Starting wrk: 120s, 2 threads, 4 connections (conservative for VMware)
+>> wrk PID=96765
+>> Sleeping 40s until switch...
+
+>> ============================================================
+>> SWITCH TRIGGERED: recreate at 2026-07-11T08:49:01.259Z
+>> ============================================================
+deployment.apps/api-gateway image updated
+deployment.apps/catalog-service image updated
+deployment.apps/price-service image updated
+deployment.apps/inventory-service image updated
+deployment.apps/shipping-service image updated
+>> Switch done in 585ms
+>> Waiting for wrk to finish...
+
+>> wrk output:
+Running 2m test @ http://192.168.49.2:30080/health
+  2 threads and 4 connections
+  Thread calibration: mean lat.: 2.975ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 3.127ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   141.01ms  634.25ms   4.64s    94.89%
+    Req/Sec     2.63     20.74   444.00     98.18%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    2.93ms
+ 75.000%    4.13ms
+ 90.000%    6.13ms
+ 99.000%    3.85s 
+ 99.900%    4.65s 
+ 99.990%    4.65s 
+ 99.999%    4.65s 
+100.000%    4.65s 
+
+  Detailed Percentile spectrum:
+       Value   Percentile   TotalCount 1/(1-Percentile)
+
+       0.759     0.000000            1         1.00
+       1.649     0.100000           55         1.11
+       2.091     0.200000          110         1.25
+       2.411     0.300000          166         1.43
+       2.685     0.400000          220         1.67
+       2.935     0.500000          274         2.00
+       3.117     0.550000          302         2.22
+       3.343     0.600000          329         2.50
+       3.615     0.650000          357         2.86
+       3.831     0.700000          384         3.33
+       4.127     0.750000          411         4.00
+       4.315     0.775000          425         4.44
+       4.679     0.800000          439         5.00
+       4.903     0.825000          453         5.71
+       5.231     0.850000          466         6.67
+       5.707     0.875000          480         8.00
+       5.899     0.887500          487         8.89
+       6.131     0.900000          494        10.00
+       6.543     0.912500          501        11.43
+       7.287     0.925000          507        13.33
+      23.103     0.937500          514        16.00
+     467.199     0.943750          518        17.78
+     910.335     0.950000          521        20.00
+    1454.079     0.956250          525        22.86
+    1708.031     0.962500          528        26.67
+    2003.967     0.968750          531        32.00
+    2250.751     0.971875          533        35.56
+    2254.847     0.975000          535        40.00
+    3051.519     0.978125          537        45.71
+    3053.567     0.981250          538        53.33
+    3205.119     0.984375          540        64.00
+    3454.975     0.985938          541        71.11
+    3661.823     0.987500          542        80.00
+    3850.239     0.989062          544        91.43
+    3850.239     0.990625          544       106.67
+    3850.239     0.992188          544       128.00
+    4407.295     0.992969          546       142.22
+    4407.295     0.993750          546       160.00
+    4407.295     0.994531          546       182.86
+    4407.295     0.995313          546       213.33
+    4407.295     0.996094          546       256.00
+    4648.959     0.996484          548       284.44
+    4648.959     1.000000          548          inf
+#[Mean    =      141.013, StdDeviation   =      634.248]
+#[Max     =     4644.864, Total count    =          548]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  602 requests in 2.00m, 145.83KB read
+  Non-2xx or 3xx responses: 25
+Requests/sec:      5.02
+Transfer/sec:      1.22KB
+
+============================================================
+  Results: /home/shruti-rao/Downloads/zero-downtime-FINAL_120_timeout/bgfinal/experiment/raw/recreate_run2_*.{csv,txt}  (1 CSV files)
+============================================================

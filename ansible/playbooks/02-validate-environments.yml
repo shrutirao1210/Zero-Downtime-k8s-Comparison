@@ -1,0 +1,6 @@
+---
+- name: Validate Blue and Green are structurally identical
+  hosts: local
+  gather_facts: false
+  roles:
+    - validate_environments

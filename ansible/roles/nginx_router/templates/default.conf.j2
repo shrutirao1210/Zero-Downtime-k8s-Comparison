@@ -1,0 +1,36 @@
+upstream backend_{{ target_env }} {
+    server api-gateway.{{ target_env }}.svc.cluster.local:8080
+        max_fails=2 fail_timeout=1s;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+
+    location /__nginx_health {
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+
+    location /health {
+        proxy_pass         http://backend_{{ target_env }}/health;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    30s;
+        proxy_next_upstream   error timeout http_502 http_503 http_504;
+    }
+
+    location / {
+        proxy_pass         http://backend_{{ target_env }};
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Routed-To "{{ target_env }}";
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    30s;
+        proxy_next_upstream        error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries  2;
+        proxy_next_upstream_timeout 3s;
+    }
+}

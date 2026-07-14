@@ -1,0 +1,256 @@
+>> [reset] Preparing for: blue-green
+deployment.apps/api-gateway image updated
+deployment.apps/catalog-service image updated
+deployment.apps/price-service image updated
+deployment.apps/inventory-service image updated
+deployment.apps/shipping-service image updated
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+Waiting for deployment "api-gateway" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "api-gateway" rollout to finish: 1 old replicas are pending termination...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+Waiting for deployment "price-service" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "price-service" rollout to finish: 1 old replicas are pending termination...
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at blue] ***************
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all blue deployments are Ready] *****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 14:40:57.655975', 'end': '2026-07-11 14:40:57.775455', 'delta': '0:00:00.119480', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to blue at 2026-07-11T09:10:58.019Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> [reset] Done. Sleeping 10s...
+>> Router OK
+============================================================
+  Strategy : blue-green  (run 3)
+  Duration : 120s  |  Switch at: 40s
+  Active NS: blue  |  Idle NS: green
+============================================================
+>> Ensuring 'blue' pods are Ready...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> Scaling 'green' to 0 replicas...
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+>> Waiting for 'green' pods to terminate (max 90s)...
+>>   5 pod(s) still terminating...
+>> 'green' is empty after 6s
+>> Sleeping 8s for CPU to settle...
+>> Verifying nginx router...
+>> Router OK (HTTP 200)
+>> Pre-restoring 'green' to 1 replicas BEFORE starting wrk...
+deployment.apps/api-gateway scaled
+deployment.apps/catalog-service scaled
+deployment.apps/price-service scaled
+deployment.apps/inventory-service scaled
+deployment.apps/shipping-service scaled
+>> Waiting for 'green' to be Ready...
+Waiting for deployment "api-gateway" rollout to finish: 0 of 1 updated replicas are available...
+deployment "api-gateway" successfully rolled out
+deployment "catalog-service" successfully rolled out
+deployment "price-service" successfully rolled out
+deployment "inventory-service" successfully rolled out
+deployment "shipping-service" successfully rolled out
+>> 'green' is Ready. Starting test in 5s...
+>> Starting wrk: 120s, 2 threads, 4 connections (conservative for VMware)
+>> wrk PID=141525
+>> Sleeping 40s until switch...
+
+>> ============================================================
+>> SWITCH TRIGGERED: blue-green at 2026-07-11T09:12:14.664Z
+>> ============================================================
+
+PLAY [Switch live traffic to Green] ********************************************
+
+TASK [include_role : switch_traffic] *******************************************
+included: switch_traffic for localhost
+
+TASK [switch_traffic : Render new default.conf pointing at green] **************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.12', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+ok: [localhost]
+
+TASK [switch_traffic : Confirm all green deployments are Ready] ****************
+ok: [localhost] => (item={'name': 'api-gateway', 'port': 8080})
+ok: [localhost] => (item={'name': 'catalog-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'price-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'inventory-service', 'port': 8080})
+ok: [localhost] => (item={'name': 'shipping-service', 'port': 8080})
+
+TASK [switch_traffic : Get running nginx router pods] **************************
+ok: [localhost]
+
+TASK [switch_traffic : Fail if no router pods found] ***************************
+skipping: [localhost]
+
+TASK [switch_traffic : Write new config into each router pod via stdin pipe] ***
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Validate nginx config in each pod] **********************
+ok: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Abort if any config is invalid] *************************
+skipping: [localhost] => (item={'changed': False, 'stdout': '', 'stderr': 'Defaulted container "nginx" out of: nginx, init-conf (init)\nnginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful', 'rc': 0, 'cmd': ['kubectl', 'exec', '-n', 'routing', 'nginx-router-6f8cb89789-79njc', '--', 'nginx', '-t'], 'start': '2026-07-11 14:42:17.831776', 'end': '2026-07-11 14:42:17.957093', 'delta': '0:00:00.125317', 'msg': '', 'invocation': {'module_args': {'_raw_params': 'kubectl exec -n routing nginx-router-6f8cb89789-79njc -- nginx -t', '_uses_shell': False, 'expand_argument_vars': True, 'stdin_add_newline': True, 'strip_empty_ends': True, 'cmd': None, 'argv': None, 'chdir': None, 'executable': None, 'creates': None, 'removes': None, 'stdin': None}}, 'stdout_lines': [], 'stderr_lines': ['Defaulted container "nginx" out of: nginx, init-conf (init)', 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'], 'failed': False, 'failed_when_result': False, 'item': 'nginx-router-6f8cb89789-79njc', 'ansible_loop_var': 'item'}) 
+skipping: [localhost]
+
+TASK [switch_traffic : Record switch timestamp] ********************************
+ok: [localhost]
+
+TASK [switch_traffic : Atomically reload nginx in each router pod] *************
+changed: [localhost] => (item=nginx-router-6f8cb89789-79njc)
+
+TASK [switch_traffic : Sync ConfigMap with live config (for pod-restart durability)] ***
+changed: [localhost]
+
+TASK [switch_traffic : Update active-environment ConfigMap] ********************
+changed: [localhost]
+
+TASK [switch_traffic : Switch complete] ****************************************
+ok: [localhost] => {
+    "msg": "✅ Traffic switched to green at 2026-07-11T09:12:18.192Z"
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=4    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+>> Switch done in 5061ms
+>> Waiting for wrk to finish...
+
+>> wrk output:
+Running 2m test @ http://192.168.49.2:30080/health
+  2 threads and 4 connections
+  Thread calibration: mean lat.: 3.540ms, rate sampling interval: 11ms
+  Thread calibration: mean lat.: 3.472ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     3.31ms    5.22ms  68.99ms   99.40%
+    Req/Sec     0.79     11.37   222.00     99.46%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    2.65ms
+ 75.000%    3.56ms
+ 90.000%    4.56ms
+ 99.000%    6.69ms
+ 99.900%   69.06ms
+ 99.990%   69.06ms
+ 99.999%   69.06ms
+100.000%   69.06ms
+
+  Detailed Percentile spectrum:
+       Value   Percentile   TotalCount 1/(1-Percentile)
+
+       0.921     0.000000            1         1.00
+       1.642     0.100000           17         1.11
+       1.911     0.200000           34         1.25
+       2.169     0.300000           51         1.43
+       2.467     0.400000           68         1.67
+       2.649     0.500000           84         2.00
+       2.785     0.550000           93         2.22
+       2.897     0.600000          101         2.50
+       3.175     0.650000          110         2.86
+       3.439     0.700000          118         3.33
+       3.561     0.750000          126         4.00
+       3.759     0.775000          131         4.44
+       3.921     0.800000          135         5.00
+       4.047     0.825000          139         5.71
+       4.099     0.850000          143         6.67
+       4.339     0.875000          147         8.00
+       4.555     0.887500          150         8.89
+       4.639     0.900000          152        10.00
+       4.655     0.912500          154        11.43
+       4.747     0.925000          156        13.33
+       4.831     0.937500          158        16.00
+       5.051     0.943750          159        17.78
+       5.479     0.950000          160        20.00
+       5.667     0.956250          161        22.86
+       5.743     0.962500          162        26.67
+       5.795     0.968750          163        32.00
+       5.883     0.971875          164        35.56
+       5.883     0.975000          164        40.00
+       5.951     0.978125          165        45.71
+       5.951     0.981250          165        53.33
+       6.691     0.984375          166        64.00
+       6.691     0.985938          166        71.11
+       6.691     0.987500          166        80.00
+       6.699     0.989062          167        91.43
+       6.699     0.990625          167       106.67
+       6.699     0.992188          167       128.00
+       6.699     0.992969          167       142.22
+       6.699     0.993750          167       160.00
+      69.055     0.994531          168       182.86
+      69.055     1.000000          168          inf
+#[Mean    =        3.307, StdDeviation   =        5.215]
+#[Max     =       68.992, Total count    =          168]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  220 requests in 2.00m, 50.92KB read
+Requests/sec:      1.83
+Transfer/sec:     434.45B
+
+============================================================
+  Results: /home/shruti-rao/Downloads/zero-downtime-FINAL_120_timeout/bgfinal/experiment/raw/blue-green_run3_*.{csv,txt}  (1 CSV files)
+============================================================

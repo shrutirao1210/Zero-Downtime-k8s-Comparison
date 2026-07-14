@@ -1,0 +1,200 @@
+---
+# Recreate deployment strategy — NEGATIVE CONTROL.
+# strategy: Recreate kills ALL old pods before starting new ones.
+# This WILL cause visible downtime. This role proves the measurement
+# harness can detect downtime — making blue-green's near-zero result credible.
+#
+# Vars expected:
+#   recreate_namespace  — namespace to deploy into (default: "recreate")
+#   recreate_image_tag  — image tag to deploy (default: image_tag_green)
+
+- name: Set defaults
+  set_fact:
+    recreate_ns:  "{{ recreate_namespace | default('recreate') }}"
+    recreate_tag: "{{ recreate_image_tag | default(image_tag_green) }}"
+
+- name: Create recreate namespace (idempotent)
+  shell: |
+    kubectl create namespace {{ recreate_ns }} --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Template Recreate Deployment for each microservice
+  copy:
+    dest: "/tmp/{{ svc.name }}-recreate-deploy.yml"
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: {{ svc.name }}
+        namespace: {{ recreate_ns }}
+        labels:
+          app: {{ svc.name }}
+          strategy: recreate
+      spec:
+        replicas: {{ replica_count }}
+        strategy:
+          type: Recreate        # <-- kills ALL old pods first, THEN starts new ones
+        selector:
+          matchLabels:
+            app: {{ svc.name }}
+        template:
+          metadata:
+            labels:
+              app: {{ svc.name }}
+              strategy: recreate
+          spec:
+            terminationGracePeriodSeconds: 5
+            containers:
+              - name: {{ svc.name }}
+                image: {{ dockerhub_user }}/{{ svc.name }}:{{ recreate_tag }}
+                ports:
+                  - containerPort: {{ svc.port }}
+                env:
+                  - name: APP_VERSION
+                    value: "{{ recreate_tag }}"
+                  - name: DEPLOY_ENV
+                    value: "{{ recreate_ns }}"
+      {% if svc.name == 'api-gateway' %}
+                  - name: CATALOG_URL
+                    value: "http://catalog-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: PRICE_URL
+                    value: "http://price-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: INVENTORY_URL
+                    value: "http://inventory-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: SHIPPING_URL
+                    value: "http://shipping-service.{{ recreate_ns }}.svc.cluster.local:8080"
+      {% endif %}
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ svc.port }}
+                  initialDelaySeconds: 3
+                  periodSeconds: 5
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ svc.port }}
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  requests:
+                    cpu: "50m"
+                    memory: "64Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "128Mi"
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Template Service for each microservice
+  copy:
+    dest: "/tmp/{{ svc.name }}-recreate-svc.yml"
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: {{ svc.name }}
+        namespace: {{ recreate_ns }}
+      spec:
+        type: ClusterIP
+        selector:
+          app: {{ svc.name }}
+        ports:
+          - port: 8080
+            targetPort: {{ svc.port }}
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Apply Services first (so ClusterIP exists before pods start)
+  command: kubectl apply -f /tmp/{{ svc.name }}-recreate-svc.yml
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: true
+
+# Initial deployment — use v1 so we can then trigger the Recreate upgrade
+- name: Deploy v1 baseline into recreate namespace first
+  copy:
+    dest: "/tmp/{{ svc.name }}-recreate-v1.yml"
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: {{ svc.name }}
+        namespace: {{ recreate_ns }}
+        labels:
+          app: {{ svc.name }}
+          strategy: recreate
+      spec:
+        replicas: {{ replica_count }}
+        strategy:
+          type: Recreate
+        selector:
+          matchLabels:
+            app: {{ svc.name }}
+        template:
+          metadata:
+            labels:
+              app: {{ svc.name }}
+              strategy: recreate
+          spec:
+            terminationGracePeriodSeconds: 5
+            containers:
+              - name: {{ svc.name }}
+                image: {{ dockerhub_user }}/{{ svc.name }}:{{ image_tag_blue }}
+                ports:
+                  - containerPort: {{ svc.port }}
+                env:
+                  - name: APP_VERSION
+                    value: "{{ image_tag_blue }}"
+                  - name: DEPLOY_ENV
+                    value: "{{ recreate_ns }}"
+      {% if svc.name == 'api-gateway' %}
+                  - name: CATALOG_URL
+                    value: "http://catalog-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: PRICE_URL
+                    value: "http://price-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: INVENTORY_URL
+                    value: "http://inventory-service.{{ recreate_ns }}.svc.cluster.local:8080"
+                  - name: SHIPPING_URL
+                    value: "http://shipping-service.{{ recreate_ns }}.svc.cluster.local:8080"
+      {% endif %}
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ svc.port }}
+                  initialDelaySeconds: 3
+                  periodSeconds: 5
+                resources:
+                  requests:
+                    cpu: "50m"
+                    memory: "64Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "128Mi"
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Apply v1 baseline to recreate namespace
+  command: kubectl apply -f /tmp/{{ svc.name }}-recreate-v1.yml
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: true
+
+- name: Wait for v1 recreate baseline to be Ready
+  command: >
+    kubectl rollout status deployment/{{ svc.name }}
+    -n {{ recreate_ns }} --timeout=180s
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: false
+
+- name: Recreate namespace baseline ready
+  debug:
+    msg: "Recreate namespace baseline (v1) is ready. Run the wrk2 test to trigger the Recreate upgrade."

@@ -1,0 +1,26 @@
+---
+- name: Create blue, green and routing namespaces (idempotent)
+  command: kubectl create namespace {{ item }} --dry-run=client -o yaml
+  register: ns_yaml
+  changed_when: false
+  loop: "{{ namespaces + [nginx_namespace] }}"
+
+- name: Apply namespace manifests
+  shell: "kubectl create namespace {{ item }} --dry-run=client -o yaml | kubectl apply -f -"
+  loop: "{{ namespaces + [nginx_namespace] }}"
+  changed_when: true
+
+- name: Create / update the active-environment ConfigMap (single source of truth)
+  shell: |
+    kubectl create configmap active-environment \
+      --from-literal=active={{ active_env }} \
+      --dry-run=client -o yaml | kubectl apply -f -
+  changed_when: true
+
+- name: Show active environment
+  command: kubectl get configmap active-environment -o jsonpath="{.data.active}"
+  register: active_now
+  changed_when: false
+
+- debug:
+    msg: "Active environment ConfigMap currently set to: {{ active_now.stdout }}"

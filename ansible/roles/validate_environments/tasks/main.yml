@@ -1,0 +1,41 @@
+---
+- name: Get blue deployment replica counts
+  command: kubectl get deployments -n blue -o jsonpath="{range .items[*]}{.metadata.name}={.spec.replicas}{'\n'}{end}"
+  register: blue_deploys
+  changed_when: false
+
+- name: Get green deployment replica counts
+  command: kubectl get deployments -n green -o jsonpath="{range .items[*]}{.metadata.name}={.spec.replicas}{'\n'}{end}"
+  register: green_deploys
+  changed_when: false
+
+- name: Get blue pod count
+  command: kubectl get pods -n blue --no-headers
+  register: blue_pods
+  changed_when: false
+
+- name: Get green pod count
+  command: kubectl get pods -n green --no-headers
+  register: green_pods
+  changed_when: false
+
+- name: Compare deployment/replica signatures of blue vs green
+  assert:
+    that:
+      - blue_deploys.stdout_lines | sort == green_deploys.stdout_lines | sort
+    fail_msg: >
+      Blue and Green namespaces are NOT structurally identical!
+      Blue: {{ blue_deploys.stdout_lines }}
+      Green: {{ green_deploys.stdout_lines }}
+    success_msg: "Blue and Green are structurally identical ({{ blue_deploys.stdout_lines | length }} services, same replica counts)."
+
+- name: Confirm expected pod count per namespace (services x replica_count)
+  assert:
+    that:
+      - blue_pods.stdout_lines | length == (microservices | length) * replica_count
+      - green_pods.stdout_lines | length == (microservices | length) * replica_count
+    fail_msg: "Pod count mismatch. Expected {{ (microservices | length) * replica_count }} pods per namespace."
+    success_msg: "Pod counts confirmed: {{ (microservices | length) * replica_count }} pods in each namespace."
+
+- debug:
+    msg: "VALIDATION PASSED — Blue and Green environments are structurally identical and safe to proceed."

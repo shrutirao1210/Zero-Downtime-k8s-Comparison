@@ -1,0 +1,46 @@
+---
+# Sets up the "recreate" namespace as a negative control.
+# strategy: Recreate WILL cause downtime. This validates the measurement harness.
+
+- name: Setup Recreate strategy namespace (negative control)
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Deploy v1 baseline into recreate namespace
+      include_role:
+        name: recreate_deploy
+      vars:
+        recreate_namespace: recreate
+        recreate_image_tag: "{{ image_tag_green }}"
+
+    - name: Create recreate namespace service (for nginx router)
+      copy:
+        dest: /tmp/recreate-router-patch.yml
+        content: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: api-gateway
+            namespace: recreate
+          spec:
+            type: ClusterIP
+            selector:
+              app: api-gateway
+            ports:
+              - port: 8080
+                targetPort: 8080
+
+    - name: Point nginx router at recreate namespace
+      include_role:
+        name: switch_traffic
+      vars:
+        target_env: recreate
+
+    - name: Done — recreate baseline ready
+      debug:
+        msg: >
+          Recreate (negative control) namespace is live.
+          Run: wrk2/run-strategy-test.sh recreate 120 50 40
+          The harness will trigger kubectl set image to v2 at t=40s.
+          Expect VISIBLE downtime (several seconds) — that's the point.

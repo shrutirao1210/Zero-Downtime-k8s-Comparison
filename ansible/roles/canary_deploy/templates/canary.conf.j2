@@ -1,0 +1,57 @@
+# Canary nginx config — uses split_clients for weighted routing
+# and resolver for dynamic DNS so nginx -t never fails on missing upstreams.
+
+resolver 10.96.0.10 valid=5s ipv6=off;
+
+{% set total = (stable_weight | int) + (canary_weight | int) %}
+{% if total > 0 and canary_weight | int > 0 and stable_weight | int > 0 %}
+{% set canary_pct = ((canary_weight | int) / total * 100) | round(1) %}
+# split_clients gives {{ 100 - canary_pct }}% stable / {{ canary_pct }}% canary
+split_clients "${remote_addr}${uri}" $canary_backend {
+    {{ canary_pct }}%    "api-gateway.{{ canary_env }}.svc.cluster.local:8080";
+    *                    "api-gateway.{{ stable_env }}.svc.cluster.local:8080";
+}
+{% endif %}
+
+server {
+    listen 80;
+
+    location /__nginx_health {
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+
+    location /health {
+{% if canary_weight | int == 0 %}
+        set $upstream_health "api-gateway.{{ stable_env }}.svc.cluster.local:8080";
+{% elif stable_weight | int == 0 %}
+        set $upstream_health "api-gateway.{{ canary_env }}.svc.cluster.local:8080";
+{% else %}
+        set $upstream_health "api-gateway.{{ stable_env }}.svc.cluster.local:8080";
+{% endif %}
+        proxy_pass         http://$upstream_health/health;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    30s;
+    }
+
+    location / {
+{% if canary_weight | int == 0 %}
+        set $routed_backend "api-gateway.{{ stable_env }}.svc.cluster.local:8080";
+{% elif stable_weight | int == 0 %}
+        set $routed_backend "api-gateway.{{ canary_env }}.svc.cluster.local:8080";
+{% else %}
+        set $routed_backend $canary_backend;
+{% endif %}
+        proxy_pass         http://$routed_backend;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_set_header   Host $host;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    30s;
+        proxy_next_upstream        error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries  2;
+        proxy_next_upstream_timeout 3s;
+    }
+}

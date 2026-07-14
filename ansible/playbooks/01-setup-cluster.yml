@@ -1,0 +1,31 @@
+---
+# Bootstraps the 3-node minikube cluster, creates blue/green/routing namespaces,
+# deploys the baseline (v1) image into BOTH blue and green so they start
+# structurally identical, then stands up the Nginx router pointing at Blue.
+- name: Bootstrap Zero-Downtime Blue-Green Infrastructure
+  hosts: local
+  gather_facts: false
+  roles:
+    - cluster_setup
+    - namespace_setup
+
+  tasks:
+    - name: Deploy baseline (v1) services into BLUE
+      include_role:
+        name: deploy_services
+      vars:
+        target_env: blue
+        image_tag: "{{ image_tag_blue }}"
+
+    - name: Deploy baseline (v1) services into GREEN (identical baseline)
+      include_role:
+        name: deploy_services
+      vars:
+        target_env: green
+        image_tag: "{{ image_tag_blue }}"
+
+    - name: Stand up Nginx router (default live = blue)
+      include_role:
+        name: nginx_router
+      vars:
+        target_env: blue

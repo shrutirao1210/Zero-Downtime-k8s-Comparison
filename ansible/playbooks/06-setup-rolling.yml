@@ -1,0 +1,34 @@
+---
+# Sets up the "rolling" namespace with v1 baseline.
+# The nginx router is then pointed at this namespace.
+# During the wrk2 test, `kubectl set image` triggers a RollingUpdate to v2.
+
+- name: Setup Rolling Update strategy namespace
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Create rolling namespace
+      shell: |
+        kubectl create namespace rolling --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+
+    - name: Deploy v1 baseline into rolling namespace
+      include_role:
+        name: rolling_update
+      vars:
+        rolling_namespace: rolling
+        rolling_image_tag: "{{ image_tag_blue }}"
+
+    - name: Point nginx router at rolling namespace
+      include_role:
+        name: switch_traffic
+      vars:
+        target_env: rolling
+
+    - name: Done — rolling baseline ready
+      debug:
+        msg: >
+          Rolling namespace is live. Now run:
+            wrk2/run-strategy-test.sh rolling 120 50 40
+          In a second terminal at t=40s the test script will kubectl set image to v2.

@@ -1,0 +1,46 @@
+---
+# Vars expected:
+#   target_env (blue/green)
+#   image_tag
+
+- name: Template Deployment
+  template:
+    src: deployment.yml.j2
+    dest: "/tmp/{{ svc.name }}-{{ target_env }}-deploy.yml"
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Template Service
+  template:
+    src: service.yml.j2
+    dest: "/tmp/{{ svc.name }}-{{ target_env }}-svc.yml"
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Apply Deployment
+  command: >
+    kubectl apply -f /tmp/{{ svc.name }}-{{ target_env }}-deploy.yml
+  changed_when: true
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Apply Service
+  command: >
+    kubectl apply -f /tmp/{{ svc.name }}-{{ target_env }}-svc.yml
+  changed_when: true
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+
+- name: Wait for all {{ target_env }} deployments to become ready
+  command: >
+    kubectl rollout status deployment/{{ svc.name }}
+    -n {{ target_env }}
+    --timeout=180s
+  loop: "{{ microservices }}"
+  loop_control:
+    loop_var: svc
+  changed_when: false

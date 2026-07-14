@@ -1,0 +1,30 @@
+---
+- name: Check if minikube cluster is already running
+  command: minikube status
+  register: mk_status
+  failed_when: false
+  changed_when: false
+
+- name: Start minikube with 3 nodes (docker driver)
+  command: >
+    minikube start --nodes={{ minikube_nodes }}
+    --driver=docker
+    --cpus=2 --memory=2200
+    --kubernetes-version=stable
+  when: "'host: Running' not in mk_status.stdout"
+
+- name: Label node 2 as the blue environment node
+  command: kubectl label node minikube-m02 env=blue --overwrite
+  changed_when: true
+
+- name: Label node 3 as the green environment node
+  command: kubectl label node minikube-m03 env=green --overwrite
+  changed_when: true
+
+- name: Confirm node labels
+  command: kubectl get nodes --show-labels
+  register: node_labels
+  changed_when: false
+
+- debug:
+    var: node_labels.stdout_lines

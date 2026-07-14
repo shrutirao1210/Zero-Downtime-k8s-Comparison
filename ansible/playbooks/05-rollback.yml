@@ -1,0 +1,11 @@
+---
+# Instant rollback: re-points the Nginx router back to Blue (which was never
+# touched during the Green deployment, so it is guaranteed stable).
+- name: Rollback traffic to Blue
+  hosts: local
+  gather_facts: false
+  tasks:
+    - include_role:
+        name: switch_traffic
+      vars:
+        target_env: blue

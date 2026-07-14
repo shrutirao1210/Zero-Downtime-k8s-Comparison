@@ -1,0 +1,52 @@
+---
+# ── Docker Hub ────────────────────────────────────────────────────────────────
+dockerhub_user: "shrutimrao"
+
+# ── Image tags ────────────────────────────────────────────────────────────────
+image_tag_blue:  "v1"
+image_tag_green: "v2"
+
+# ── Cluster ───────────────────────────────────────────────────────────────────
+minikube_nodes: 3
+replica_count:  2
+
+# ── Microservices ─────────────────────────────────────────────────────────────
+microservices:
+  - name: api-gateway
+    port: 8080
+  - name: catalog-service
+    port: 8080
+  - name: price-service
+    port: 8080
+  - name: inventory-service
+    port: 8080
+  - name: shipping-service
+    port: 8080
+
+namespaces:
+  - blue
+  - green
+
+# ── Gate thresholds ───────────────────────────────────────────────────────────
+latency_threshold_ms:    200   # p99 gate
+error_rate_threshold_pct: 1   # max error % before rollback
+downtime_gate_ms:        100   # zero-downtime target
+
+# ── Nginx Router ──────────────────────────────────────────────────────────────
+nginx_namespace: routing
+nginx_configmap: nginx-router-conf
+nginx_deployment: nginx-router
+nginx_service:   nginx-router-svc
+nginx_node_port: 30080
+
+# ── Experiment config ─────────────────────────────────────────────────────────
+# Rate kept at 50 req/s — safely below cluster ceiling to avoid coordinated
+# omission. The cluster throughput ceiling on VMware minikube is ~80-100 req/s
+# for this app; running at 50 keeps wrk2 in constant-rate mode.
+experiment_rate:       20
+experiment_duration:   120
+experiment_switch_at:  40
+experiment_n_runs:     10    # minimum; use 20 for publication-quality results
+
+# Active environment (updated by playbooks)
+active_env: blue

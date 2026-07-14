@@ -1,0 +1,5 @@
+Strategy,Worst-case p99 (ms)
+Blue-Green,2083.839
+Rolling Update,1203.199
+Canary,92.735
+Recreate (control),23625.727

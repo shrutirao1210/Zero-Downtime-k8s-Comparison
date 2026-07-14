@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ svc.name }}
+  namespace: {{ target_env }}
+  labels:
+    app: {{ svc.name }}
+    env: {{ target_env }}
+spec:
+  replicas: {{ replica_count }}
+  selector:
+    matchLabels:
+      app: {{ svc.name }}
+      env: {{ target_env }}
+  template:
+    metadata:
+      labels:
+        app: {{ svc.name }}
+        env: {{ target_env }}
+    spec:
+      # Fast termination: pods die in ≤5s instead of default 30s.
+      # This is critical for the equal-footing fix — when we scale the idle
+      # namespace to 0 before a test, we need pods to actually be GONE
+      # (not just Terminating) before wrk starts, otherwise they keep
+      # consuming CPU during the graceful shutdown window.
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: {{ svc.name }}
+          image: {{ dockerhub_user }}/{{ svc.name }}:{{ image_tag }}
+          ports:
+            - containerPort: {{ svc.port }}
+          env:
+            - name: APP_VERSION
+              value: "{{ image_tag }}"
+            - name: DEPLOY_ENV
+              value: "{{ target_env }}"
+{% if svc.name == 'api-gateway' %}
+            - name: CATALOG_URL
+              value: "http://catalog-service.{{ target_env }}.svc.cluster.local:8080"
+            - name: PRICE_URL
+              value: "http://price-service.{{ target_env }}.svc.cluster.local:8080"
+            - name: INVENTORY_URL
+              value: "http://inventory-service.{{ target_env }}.svc.cluster.local:8080"
+            - name: SHIPPING_URL
+              value: "http://shipping-service.{{ target_env }}.svc.cluster.local:8080"
+{% endif %}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ svc.port }}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ svc.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "48Mi"
+            limits:
+              cpu: "100m"
+              memory: "96Mi"

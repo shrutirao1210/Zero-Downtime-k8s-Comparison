@@ -1,0 +1,5 @@
+Strategy,Base Pods,Peak Pods,Additional Pods,Overhead %,Remarks
+Blue-Green,5,10,5,100.0,Standby namespace maintained continuously
+Rolling Update,10,15,5,50.0,Temporary surge during rollout
+Canary,5,10,5,100.0,Additional canary replicas during staged rollout
+Recreate (control),10,10,0,0.0,No additional replicas; temporary service interruption
